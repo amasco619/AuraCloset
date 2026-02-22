@@ -1,0 +1,316 @@
+import { createContext, useContext, useState, useEffect, useMemo, ReactNode, useCallback } from 'react';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import * as Crypto from 'expo-crypto';
+
+export type BodyType = 'hourglass' | 'pear' | 'apple' | 'rectangle' | 'inverted-triangle' | 'athletic';
+export type EyeColor = 'dark-brown' | 'light-brown' | 'hazel' | 'green' | 'blue' | 'grey';
+export type SkinTone = 'very-light' | 'light' | 'medium-light' | 'medium' | 'medium-dark' | 'dark' | 'very-dark';
+export type Undertone = 'cool' | 'neutral' | 'warm';
+export type StyleGoal = 'youthful' | 'elevated' | 'minimal' | 'romantic' | 'bold' | 'classic';
+export type ItemCategory = 'top' | 'bottom' | 'dress' | 'outerwear' | 'shoes' | 'bag' | 'jewelry';
+export type OccasionTag = 'work' | 'date' | 'casual' | 'event';
+export type SeasonTag = 'winter' | 'summer' | 'spring' | 'fall' | 'all-season';
+
+export interface Constraints {
+  noSleeveless: boolean;
+  noShortSkirts: boolean;
+  maxHeelHeight: 'any' | 'low' | 'medium' | 'flat';
+}
+
+export interface UserProfile {
+  name: string;
+  bodyType: BodyType | null;
+  eyeColor: EyeColor | null;
+  skinTone: SkinTone | null;
+  undertone: Undertone | null;
+  styleGoalPrimary: StyleGoal | null;
+  styleGoalSecondary: StyleGoal | null;
+  lifestyleWork: number;
+  lifestyleCasual: number;
+  lifestyleEvents: number;
+  constraints: Constraints;
+  onboardingComplete: boolean;
+}
+
+export interface WardrobeItem {
+  id: string;
+  photoUri: string;
+  category: ItemCategory;
+  subType: string;
+  colorFamily: string;
+  occasionTags: OccasionTag[];
+  seasonTags: SeasonTag[];
+  formalityLevel: number;
+  createdAt: string;
+}
+
+export interface OutfitComponent {
+  category: ItemCategory;
+  subType: string;
+  colorFamily: string;
+  owned: boolean;
+  matchedItemId?: string;
+}
+
+export interface OutfitSet {
+  id: string;
+  scenario: OccasionTag;
+  components: OutfitComponent[];
+}
+
+interface AppContextValue {
+  profile: UserProfile;
+  updateProfile: (updates: Partial<UserProfile>) => void;
+  wardrobeItems: WardrobeItem[];
+  addWardrobeItem: (item: Omit<WardrobeItem, 'id' | 'createdAt'>) => void;
+  removeWardrobeItem: (id: string) => void;
+  isPremium: boolean;
+  togglePremium: () => void;
+  outfitSets: OutfitSet[];
+  isLoading: boolean;
+  canAddItem: boolean;
+}
+
+const defaultProfile: UserProfile = {
+  name: '',
+  bodyType: null,
+  eyeColor: null,
+  skinTone: null,
+  undertone: null,
+  styleGoalPrimary: null,
+  styleGoalSecondary: null,
+  lifestyleWork: 40,
+  lifestyleCasual: 40,
+  lifestyleEvents: 20,
+  constraints: {
+    noSleeveless: false,
+    noShortSkirts: false,
+    maxHeelHeight: 'any',
+  },
+  onboardingComplete: false,
+};
+
+const FREE_ITEM_CAP = 30;
+
+const AppContext = createContext<AppContextValue | null>(null);
+
+const STORAGE_KEYS = {
+  profile: '@auracloset_profile',
+  wardrobe: '@auracloset_wardrobe',
+  premium: '@auracloset_premium',
+};
+
+const subTypes: Record<ItemCategory, string[]> = {
+  top: ['t-shirt', 'blouse', 'shirt', 'sweater', 'turtleneck', 'tank-top', 'crop-top', 'cardigan'],
+  bottom: ['jeans', 'trousers', 'skirt', 'shorts', 'chinos', 'leggings', 'wide-leg'],
+  dress: ['midi-dress', 'maxi-dress', 'mini-dress', 'wrap-dress', 'shirt-dress', 'cocktail-dress'],
+  outerwear: ['blazer', 'coat', 'jacket', 'trench', 'puffer', 'vest', 'denim-jacket'],
+  shoes: ['sneakers', 'heels', 'flats', 'boots', 'sandals', 'loafers', 'mules'],
+  bag: ['tote', 'crossbody', 'clutch', 'backpack', 'shoulder-bag', 'mini-bag'],
+  jewelry: ['necklace', 'earrings', 'bracelet', 'ring', 'watch', 'brooch'],
+};
+
+const colorFamilies = ['black', 'white', 'navy', 'beige', 'grey', 'brown', 'red', 'pink', 'blue', 'green', 'burgundy', 'cream', 'olive', 'camel', 'lavender', 'coral'];
+
+function generateOutfitSets(items: WardrobeItem[], profile: UserProfile): OutfitSet[] {
+  const scenarios: OccasionTag[] = ['work', 'casual', 'date', 'event'];
+  const sets: OutfitSet[] = [];
+
+  const outfitTemplates: Record<OccasionTag, OutfitComponent[][]> = {
+    work: [
+      [
+        { category: 'top', subType: 'blouse', colorFamily: 'white', owned: false },
+        { category: 'bottom', subType: 'trousers', colorFamily: 'navy', owned: false },
+        { category: 'shoes', subType: 'loafers', colorFamily: 'black', owned: false },
+        { category: 'bag', subType: 'tote', colorFamily: 'camel', owned: false },
+        { category: 'jewelry', subType: 'watch', colorFamily: 'gold', owned: false },
+      ],
+      [
+        { category: 'top', subType: 'shirt', colorFamily: 'blue', owned: false },
+        { category: 'bottom', subType: 'chinos', colorFamily: 'beige', owned: false },
+        { category: 'outerwear', subType: 'blazer', colorFamily: 'navy', owned: false },
+        { category: 'shoes', subType: 'flats', colorFamily: 'black', owned: false },
+        { category: 'jewelry', subType: 'earrings', colorFamily: 'gold', owned: false },
+      ],
+      [
+        { category: 'dress', subType: 'shirt-dress', colorFamily: 'navy', owned: false },
+        { category: 'shoes', subType: 'heels', colorFamily: 'beige', owned: false },
+        { category: 'bag', subType: 'shoulder-bag', colorFamily: 'brown', owned: false },
+        { category: 'jewelry', subType: 'necklace', colorFamily: 'gold', owned: false },
+      ],
+    ],
+    casual: [
+      [
+        { category: 'top', subType: 't-shirt', colorFamily: 'white', owned: false },
+        { category: 'bottom', subType: 'jeans', colorFamily: 'blue', owned: false },
+        { category: 'shoes', subType: 'sneakers', colorFamily: 'white', owned: false },
+        { category: 'bag', subType: 'crossbody', colorFamily: 'brown', owned: false },
+      ],
+      [
+        { category: 'top', subType: 'sweater', colorFamily: 'cream', owned: false },
+        { category: 'bottom', subType: 'jeans', colorFamily: 'black', owned: false },
+        { category: 'shoes', subType: 'boots', colorFamily: 'brown', owned: false },
+        { category: 'jewelry', subType: 'bracelet', colorFamily: 'gold', owned: false },
+      ],
+    ],
+    date: [
+      [
+        { category: 'dress', subType: 'midi-dress', colorFamily: 'burgundy', owned: false },
+        { category: 'shoes', subType: 'heels', colorFamily: 'black', owned: false },
+        { category: 'bag', subType: 'clutch', colorFamily: 'gold', owned: false },
+        { category: 'jewelry', subType: 'earrings', colorFamily: 'gold', owned: false },
+        { category: 'jewelry', subType: 'necklace', colorFamily: 'gold', owned: false },
+      ],
+      [
+        { category: 'top', subType: 'blouse', colorFamily: 'pink', owned: false },
+        { category: 'bottom', subType: 'skirt', colorFamily: 'black', owned: false },
+        { category: 'shoes', subType: 'heels', colorFamily: 'beige', owned: false },
+        { category: 'jewelry', subType: 'bracelet', colorFamily: 'silver', owned: false },
+      ],
+    ],
+    event: [
+      [
+        { category: 'dress', subType: 'cocktail-dress', colorFamily: 'black', owned: false },
+        { category: 'shoes', subType: 'heels', colorFamily: 'gold', owned: false },
+        { category: 'bag', subType: 'clutch', colorFamily: 'black', owned: false },
+        { category: 'jewelry', subType: 'earrings', colorFamily: 'silver', owned: false },
+        { category: 'jewelry', subType: 'necklace', colorFamily: 'silver', owned: false },
+      ],
+      [
+        { category: 'top', subType: 'blouse', colorFamily: 'cream', owned: false },
+        { category: 'bottom', subType: 'wide-leg', colorFamily: 'black', owned: false },
+        { category: 'outerwear', subType: 'blazer', colorFamily: 'black', owned: false },
+        { category: 'shoes', subType: 'mules', colorFamily: 'gold', owned: false },
+        { category: 'jewelry', subType: 'ring', colorFamily: 'gold', owned: false },
+      ],
+    ],
+  };
+
+  for (const scenario of scenarios) {
+    const templates = outfitTemplates[scenario];
+    for (let i = 0; i < templates.length; i++) {
+      const components = templates[i].map(comp => {
+        if (profile.constraints.noSleeveless && comp.subType === 'tank-top') {
+          return { ...comp, subType: 'blouse' };
+        }
+        if (profile.constraints.noShortSkirts && comp.subType === 'mini-dress') {
+          return { ...comp, subType: 'midi-dress' };
+        }
+        if (profile.constraints.maxHeelHeight === 'flat' && comp.subType === 'heels') {
+          return { ...comp, subType: 'flats' };
+        }
+
+        const match = items.find(
+          item => item.category === comp.category && (item.subType === comp.subType || item.colorFamily === comp.colorFamily)
+        );
+        if (match) {
+          return { ...comp, owned: true, matchedItemId: match.id };
+        }
+        return comp;
+      });
+
+      sets.push({
+        id: `${scenario}-${i}`,
+        scenario,
+        components,
+      });
+    }
+  }
+
+  return sets;
+}
+
+export { subTypes, colorFamilies };
+
+export function AppProvider({ children }: { children: ReactNode }) {
+  const [profile, setProfile] = useState<UserProfile>(defaultProfile);
+  const [wardrobeItems, setWardrobeItems] = useState<WardrobeItem[]>([]);
+  const [isPremium, setIsPremium] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
+
+  useEffect(() => {
+    loadData();
+  }, []);
+
+  const loadData = async () => {
+    try {
+      const [profileData, wardrobeData, premiumData] = await Promise.all([
+        AsyncStorage.getItem(STORAGE_KEYS.profile),
+        AsyncStorage.getItem(STORAGE_KEYS.wardrobe),
+        AsyncStorage.getItem(STORAGE_KEYS.premium),
+      ]);
+      if (profileData) setProfile(JSON.parse(profileData));
+      if (wardrobeData) setWardrobeItems(JSON.parse(wardrobeData));
+      if (premiumData) setIsPremium(JSON.parse(premiumData));
+    } catch (e) {
+      console.error('Failed to load data:', e);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const updateProfile = useCallback((updates: Partial<UserProfile>) => {
+    setProfile(prev => {
+      const updated = { ...prev, ...updates };
+      AsyncStorage.setItem(STORAGE_KEYS.profile, JSON.stringify(updated));
+      return updated;
+    });
+  }, []);
+
+  const addWardrobeItem = useCallback((item: Omit<WardrobeItem, 'id' | 'createdAt'>) => {
+    const newItem: WardrobeItem = {
+      ...item,
+      id: Crypto.randomUUID(),
+      createdAt: new Date().toISOString(),
+    };
+    setWardrobeItems(prev => {
+      const updated = [...prev, newItem];
+      AsyncStorage.setItem(STORAGE_KEYS.wardrobe, JSON.stringify(updated));
+      return updated;
+    });
+  }, []);
+
+  const removeWardrobeItem = useCallback((id: string) => {
+    setWardrobeItems(prev => {
+      const updated = prev.filter(item => item.id !== id);
+      AsyncStorage.setItem(STORAGE_KEYS.wardrobe, JSON.stringify(updated));
+      return updated;
+    });
+  }, []);
+
+  const togglePremium = useCallback(() => {
+    setIsPremium(prev => {
+      const updated = !prev;
+      AsyncStorage.setItem(STORAGE_KEYS.premium, JSON.stringify(updated));
+      return updated;
+    });
+  }, []);
+
+  const outfitSets = useMemo(() => generateOutfitSets(wardrobeItems, profile), [wardrobeItems, profile]);
+  const canAddItem = isPremium || wardrobeItems.length < FREE_ITEM_CAP;
+
+  const value = useMemo(() => ({
+    profile,
+    updateProfile,
+    wardrobeItems,
+    addWardrobeItem,
+    removeWardrobeItem,
+    isPremium,
+    togglePremium,
+    outfitSets,
+    isLoading,
+    canAddItem,
+  }), [profile, updateProfile, wardrobeItems, addWardrobeItem, removeWardrobeItem, isPremium, togglePremium, outfitSets, isLoading, canAddItem]);
+
+  return (
+    <AppContext.Provider value={value}>
+      {children}
+    </AppContext.Provider>
+  );
+}
+
+export function useApp() {
+  const context = useContext(AppContext);
+  if (!context) throw new Error('useApp must be used within AppProvider');
+  return context;
+}
