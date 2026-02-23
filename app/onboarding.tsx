@@ -1,5 +1,5 @@
 import { useState, useRef } from 'react';
-import { StyleSheet, Text, View, Pressable, TextInput, ScrollView, Dimensions, Platform } from 'react-native';
+import { StyleSheet, Text, View, Pressable, TextInput, ScrollView, Dimensions, Platform, Image, ImageSourcePropType } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { router } from 'expo-router';
@@ -10,13 +10,22 @@ import Animated, { FadeInDown, FadeInRight } from 'react-native-reanimated';
 
 const { width } = Dimensions.get('window');
 
-const BODY_TYPES: { id: BodyType; label: string; desc: string; icon: string }[] = [
-  { id: 'hourglass', label: 'Hourglass', desc: 'Balanced shoulders & hips, defined waist', icon: 'body-outline' },
-  { id: 'pear', label: 'Pear', desc: 'Hips wider than shoulders', icon: 'body-outline' },
-  { id: 'apple', label: 'Apple', desc: 'Fuller midsection, slimmer legs', icon: 'body-outline' },
-  { id: 'rectangle', label: 'Rectangle', desc: 'Even proportions throughout', icon: 'body-outline' },
-  { id: 'inverted-triangle', label: 'Inverted Triangle', desc: 'Broad shoulders, narrow hips', icon: 'body-outline' },
-  { id: 'athletic', label: 'Athletic', desc: 'Toned & muscular build', icon: 'body-outline' },
+const BODY_TYPE_IMAGES: Record<BodyType, ImageSourcePropType> = {
+  'hourglass': require('@/assets/body_types/hourglass.png'),
+  'pear': require('@/assets/body_types/pear.png'),
+  'apple': require('@/assets/body_types/apple.png'),
+  'rectangle': require('@/assets/body_types/rectangle.png'),
+  'inverted-triangle': require('@/assets/body_types/inverted_triangle.png'),
+  'athletic': require('@/assets/body_types/athletic.png'),
+};
+
+const BODY_TYPES: { id: BodyType; label: string; desc: string }[] = [
+  { id: 'hourglass', label: 'Hourglass', desc: 'Balanced shoulders & hips, defined waist' },
+  { id: 'pear', label: 'Pear', desc: 'Hips wider than shoulders' },
+  { id: 'apple', label: 'Apple', desc: 'Fuller midsection, slimmer legs' },
+  { id: 'rectangle', label: 'Rectangle', desc: 'Even proportions throughout' },
+  { id: 'inverted-triangle', label: 'Inverted Triangle', desc: 'Broad shoulders, narrow hips' },
+  { id: 'athletic', label: 'Athletic', desc: 'Toned & muscular build' },
 ];
 
 const EYE_COLORS: { id: EyeColor; label: string; hex: string }[] = [
@@ -138,7 +147,7 @@ export default function OnboardingScreen() {
                   style={[styles.optionCard, bodyType === bt.id && styles.optionCardSelected]}
                   onPress={() => { setBodyType(bt.id); Haptics.selectionAsync(); }}
                 >
-                  <Ionicons name={bt.icon as any} size={28} color={bodyType === bt.id ? Colors.secondary : Colors.textLight} />
+                  <Image source={BODY_TYPE_IMAGES[bt.id]} style={styles.bodyTypeImage} resizeMode="contain" />
                   <Text style={[styles.optionLabel, bodyType === bt.id && styles.optionLabelSelected]}>{bt.label}</Text>
                   <Text style={styles.optionDesc}>{bt.desc}</Text>
                 </Pressable>
@@ -313,8 +322,9 @@ const styles = StyleSheet.create({
   inputLabel: { fontFamily: 'Inter_500Medium', fontSize: 13, color: Colors.textSecondary, marginBottom: 8, letterSpacing: 0.3 },
   textInput: { fontFamily: 'Inter_500Medium', fontSize: 16, color: Colors.primary, backgroundColor: Colors.white, borderRadius: 14, paddingHorizontal: 16, paddingVertical: 14, borderWidth: 1, borderColor: Colors.border },
   optionsGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 10 },
-  optionCard: { width: (width - 58) / 2, backgroundColor: Colors.white, borderRadius: 14, padding: 14, borderWidth: 1.5, borderColor: Colors.border },
+  optionCard: { width: (width - 58) / 2, backgroundColor: Colors.white, borderRadius: 14, padding: 14, borderWidth: 1.5, borderColor: Colors.border, alignItems: 'center' as const },
   optionCardSelected: { borderColor: Colors.secondary, backgroundColor: Colors.secondary + '08' },
+  bodyTypeImage: { width: 80, height: 90, marginBottom: 4 },
   optionLabel: { fontFamily: 'Inter_600SemiBold', fontSize: 14, color: Colors.primary, marginTop: 8 },
   optionLabelSelected: { color: Colors.secondary },
   optionDesc: { fontFamily: 'Inter_400Regular', fontSize: 11, color: Colors.textSecondary, marginTop: 4, lineHeight: 15 },
