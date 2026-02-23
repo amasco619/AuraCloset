@@ -127,7 +127,11 @@ export default function HomeScreen() {
         {Object.values(starterRecommendations).some(Boolean) && (
           <Animated.View entering={FadeInDown.delay(450).duration(500)}>
             <Text style={styles.sectionTitle}>Starter Recommendations</Text>
-            <Text style={styles.recSubtitle}>Key pieces to build your capsule wardrobe</Text>
+            <Text style={styles.recSubtitle}>
+              {profile.styleGoalPrimary
+                ? `Curated for your ${styleGoalLabels[profile.styleGoalPrimary]} style`
+                : 'Key pieces to build your capsule wardrobe'}
+            </Text>
             <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.recScroll} contentContainerStyle={styles.recScrollContent}>
               {Object.entries(starterRecommendations).map(([cat, slot]) => {
                 if (!slot) return null;

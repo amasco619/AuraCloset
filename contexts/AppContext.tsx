@@ -1,37 +1,10 @@
 import { createContext, useContext, useState, useEffect, useMemo, ReactNode, useCallback } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Crypto from 'expo-crypto';
-import { WardrobeSlot, initializeSlots, updateSlotsAfterAdd, getFirstNeededByCategory } from '@/constants/wardrobeBlueprint';
+import { WardrobeSlot, initializeSlots, updateSlotsAfterAdd, getFirstNeededByCategory, getProfileBlueprint } from '@/constants/wardrobeBlueprint';
+import { BodyType, EyeColor, SkinTone, Undertone, StyleGoal, ItemCategory, OccasionTag, SeasonTag, Constraints, UserProfile } from '@/constants/types';
 
-export type BodyType = 'hourglass' | 'pear' | 'apple' | 'rectangle' | 'inverted-triangle' | 'athletic';
-export type EyeColor = 'dark-brown' | 'light-brown' | 'hazel' | 'green' | 'blue' | 'grey';
-export type SkinTone = 'very-light' | 'light' | 'medium-light' | 'medium' | 'medium-dark' | 'dark' | 'very-dark';
-export type Undertone = 'cool' | 'neutral' | 'warm';
-export type StyleGoal = 'youthful' | 'elevated' | 'minimal' | 'romantic' | 'bold' | 'classic';
-export type ItemCategory = 'top' | 'bottom' | 'dress' | 'outerwear' | 'shoes' | 'bag' | 'jewelry';
-export type OccasionTag = 'work' | 'date' | 'casual' | 'event';
-export type SeasonTag = 'winter' | 'summer' | 'spring' | 'fall' | 'all-season';
-
-export interface Constraints {
-  noSleeveless: boolean;
-  noShortSkirts: boolean;
-  maxHeelHeight: 'any' | 'low' | 'medium' | 'flat';
-}
-
-export interface UserProfile {
-  name: string;
-  bodyType: BodyType | null;
-  eyeColor: EyeColor | null;
-  skinTone: SkinTone | null;
-  undertone: Undertone | null;
-  styleGoalPrimary: StyleGoal | null;
-  styleGoalSecondary: StyleGoal | null;
-  lifestyleWork: number;
-  lifestyleCasual: number;
-  lifestyleEvents: number;
-  constraints: Constraints;
-  onboardingComplete: boolean;
-}
+export type { BodyType, EyeColor, SkinTone, Undertone, StyleGoal, ItemCategory, OccasionTag, SeasonTag, Constraints, UserProfile } from '@/constants/types';
 
 export interface WardrobeItem {
   id: string;
@@ -239,9 +212,12 @@ export function AppProvider({ children }: { children: ReactNode }) {
     loadData();
   }, []);
 
+  const profileBlueprintKey = `${profile.styleGoalPrimary || ''}-${profile.styleGoalSecondary || ''}-${profile.bodyType || ''}-${profile.lifestyleWork}-${profile.lifestyleCasual}-${profile.lifestyleEvents}-${profile.constraints.noSleeveless}-${profile.constraints.noShortSkirts}-${profile.constraints.maxHeelHeight}`;
+
   useEffect(() => {
     if (!isLoading && !slotsInitialized) {
-      const slots = initializeSlots(wardrobeItems);
+      const blueprint = getProfileBlueprint(profile);
+      const slots = initializeSlots(wardrobeItems, blueprint);
       setRecommendationSlots(slots);
       setSlotsInitialized(true);
       AsyncStorage.setItem(STORAGE_KEYS.slots, JSON.stringify(
@@ -249,6 +225,17 @@ export function AppProvider({ children }: { children: ReactNode }) {
       ));
     }
   }, [isLoading, slotsInitialized, wardrobeItems]);
+
+  useEffect(() => {
+    if (slotsInitialized) {
+      const blueprint = getProfileBlueprint(profile);
+      const slots = initializeSlots(wardrobeItems, blueprint);
+      setRecommendationSlots(slots);
+      AsyncStorage.setItem(STORAGE_KEYS.slots, JSON.stringify(
+        slots.map(s => ({ id: s.id, status: s.status, matchedItemId: s.matchedItemId }))
+      ));
+    }
+  }, [profileBlueprintKey]);
 
   const loadData = async () => {
     try {
@@ -264,7 +251,9 @@ export function AppProvider({ children }: { children: ReactNode }) {
       if (premiumData) setIsPremium(JSON.parse(premiumData));
       if (slotsData) {
         const savedStatuses: { id: string; status: 'needed' | 'owned'; matchedItemId?: string }[] = JSON.parse(slotsData);
-        const fullSlots = initializeSlots(loadedItems);
+        const loadedProfile = profileData ? JSON.parse(profileData) : defaultProfile;
+        const blueprint = getProfileBlueprint(loadedProfile);
+        const fullSlots = initializeSlots(loadedItems, blueprint);
         const merged = fullSlots.map(slot => {
           const saved = savedStatuses.find(s => s.id === slot.id);
           if (saved) {
@@ -314,14 +303,15 @@ export function AppProvider({ children }: { children: ReactNode }) {
     setWardrobeItems(prev => {
       const updated = prev.filter(item => item.id !== id);
       AsyncStorage.setItem(STORAGE_KEYS.wardrobe, JSON.stringify(updated));
-      const refreshedSlots = initializeSlots(updated);
+      const blueprint = getProfileBlueprint(profile);
+      const refreshedSlots = initializeSlots(updated, blueprint);
       setRecommendationSlots(refreshedSlots);
       AsyncStorage.setItem(STORAGE_KEYS.slots, JSON.stringify(
         refreshedSlots.map(s => ({ id: s.id, status: s.status, matchedItemId: s.matchedItemId }))
       ));
       return updated;
     });
-  }, []);
+  }, [profile]);
 
   const togglePremium = useCallback(() => {
     setIsPremium(prev => {

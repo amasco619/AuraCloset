@@ -4,9 +4,9 @@
 AuraCloset is a virtual wardrobe + styling assistant mobile app built with Expo (React Native) and Express backend. The tagline is "Your quiet-luxury stylist in your pocket."
 
 ## Current State
-- **Version**: 1.1.0
+- **Version**: 1.2.0
 - **Last Updated**: 2026-02-23
-- **Status**: Recommendation slots system added
+- **Status**: Dynamic style-aware recommendations
 
 ## Architecture
 - **Frontend**: Expo Router (file-based routing) with React Native
@@ -44,20 +44,31 @@ contexts/
   AppContext.tsx        - Main app state (profile, wardrobe, premium, recommendation slots)
 constants/
   colors.ts            - Theme colors (navy/champagne gold palette)
-  wardrobeBlueprint.ts - WardrobeSlot model, blueprint data, slot initialization/matching
+  types.ts             - Shared type definitions (BodyType, StyleGoal, UserProfile, etc.)
+  wardrobeBlueprint.ts - WardrobeSlot model, per-style blueprints, getProfileBlueprint, slot matching
 assets/
   body_types/          - Illustrated body shape images (hourglass, pear, apple, rectangle, inverted triangle, athletic)
   recommendations/     - Sample images for wardrobe slots (19 flat-lay fashion photos)
 ```
 
 ## WardrobeSlot Blueprint System
-- 19 essential wardrobe items defined in `constants/wardrobeBlueprint.ts`
+- Dynamic per-style-goal blueprints defined in `constants/wardrobeBlueprint.ts`
+- 6 curated blueprint sets: minimal, elevated, bold, romantic, classic, youthful
+- `getProfileBlueprint(profile)` selects items based on:
+  - Primary style goal (selects base blueprint set)
+  - Secondary style goal (adds lower-priority items from secondary set)
+  - Body type (adjusts category priorities — e.g., pear boosts tops/jewelry)
+  - Lifestyle percentages (work/casual/events adjust item priority)
+  - Constraints (filters heels if flat-only, removes sleeveless, swaps mini for midi)
+- Falls back to classic blueprint when no style goal is set
+- Shared types extracted to `constants/types.ts` to avoid circular dependencies
 - Each slot has: id, category, subType, colorFamily, priority, label, description, sampleImage
-- Slots are initialized on first load by comparing user's wardrobe to the blueprint
+- Slots re-initialize automatically when profile style goals change
 - When an item is added, the first matching needed slot is updated to owned
-- When an item is removed, all slots are re-initialized from the current wardrobe
+- When an item is removed, all slots are re-initialized from the profile-aware blueprint
 - Slot statuses are persisted to AsyncStorage under `@auracloset_slots`
 - `starterRecommendations` provides the first needed slot per category for the Home screen
+- Home screen subtitle dynamically shows "Curated for your [Style] style"
 
 ## Color Palette
 - Primary: #101826 (Deep Navy)
