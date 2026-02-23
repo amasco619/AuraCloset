@@ -1,4 +1,4 @@
-import { StyleSheet, Text, View, ScrollView, Pressable, Platform } from 'react-native';
+import { StyleSheet, Text, View, ScrollView, Pressable, Platform, Image, ImageSourcePropType } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useApp, OutfitSet, OutfitComponent } from '@/contexts/AppContext';
@@ -19,6 +19,54 @@ const categoryIcons: Record<string, string> = {
   outerwear: 'cloudy-outline', shoes: 'footsteps-outline', bag: 'bag-handle-outline',
   jewelry: 'diamond-outline',
 };
+
+const COMPONENT_IMAGES: Record<string, ImageSourcePropType> = {
+  'top-blouse-white': require('@/assets/recommendations/white_shirt.png'),
+  'top-blouse-pink': require('@/assets/recommendations/black_blouse.png'),
+  'top-blouse-cream': require('@/assets/recommendations/cream_sweater.png'),
+  'top-shirt-blue': require('@/assets/recommendations/blue_shirt.png'),
+  'top-shirt-white': require('@/assets/recommendations/white_shirt.png'),
+  'top-t-shirt-white': require('@/assets/recommendations/white_tee.png'),
+  'top-sweater-cream': require('@/assets/recommendations/cream_sweater.png'),
+  'bottom-trousers-navy': require('@/assets/recommendations/dark_trousers.png'),
+  'bottom-trousers-beige': require('@/assets/recommendations/beige_trousers.png'),
+  'bottom-chinos-beige': require('@/assets/recommendations/beige_trousers.png'),
+  'bottom-jeans-blue': require('@/assets/recommendations/jeans.png'),
+  'bottom-jeans-black': require('@/assets/recommendations/dark_trousers.png'),
+  'bottom-skirt-black': require('@/assets/recommendations/dark_trousers.png'),
+  'bottom-wide-leg-black': require('@/assets/recommendations/dark_trousers.png'),
+  'outerwear-blazer-navy': require('@/assets/recommendations/navy_blazer.png'),
+  'outerwear-blazer-black': require('@/assets/recommendations/navy_blazer.png'),
+  'shoes-loafers-black': require('@/assets/recommendations/loafers.png'),
+  'shoes-flats-black': require('@/assets/recommendations/loafers.png'),
+  'shoes-sneakers-white': require('@/assets/recommendations/white_sneakers.png'),
+  'shoes-boots-brown': require('@/assets/recommendations/brown_boots.png'),
+  'shoes-heels-beige': require('@/assets/recommendations/black_heels.png'),
+  'shoes-heels-black': require('@/assets/recommendations/black_heels.png'),
+  'shoes-heels-gold': require('@/assets/recommendations/black_heels.png'),
+  'shoes-mules-gold': require('@/assets/recommendations/loafers.png'),
+  'bag-tote-camel': require('@/assets/recommendations/black_bag.png'),
+  'bag-crossbody-brown': require('@/assets/recommendations/black_bag.png'),
+  'bag-clutch-gold': require('@/assets/recommendations/black_bag.png'),
+  'bag-clutch-black': require('@/assets/recommendations/black_bag.png'),
+  'bag-shoulder-bag-brown': require('@/assets/recommendations/black_bag.png'),
+  'jewelry-watch-gold': require('@/assets/recommendations/silver_watch.png'),
+  'jewelry-earrings-gold': require('@/assets/recommendations/gold_hoops.png'),
+  'jewelry-earrings-silver': require('@/assets/recommendations/gold_hoops.png'),
+  'jewelry-necklace-gold': require('@/assets/recommendations/gold_necklace.png'),
+  'jewelry-necklace-silver': require('@/assets/recommendations/gold_necklace.png'),
+  'jewelry-bracelet-gold': require('@/assets/recommendations/gold_necklace.png'),
+  'jewelry-bracelet-silver': require('@/assets/recommendations/gold_necklace.png'),
+  'jewelry-ring-gold': require('@/assets/recommendations/gold_hoops.png'),
+  'dress-midi-dress-burgundy': require('@/assets/recommendations/black_dress.png'),
+  'dress-shirt-dress-navy': require('@/assets/recommendations/black_dress.png'),
+  'dress-cocktail-dress-black': require('@/assets/recommendations/black_dress.png'),
+};
+
+function getComponentImage(comp: OutfitComponent): ImageSourcePropType | null {
+  const key = `${comp.category}-${comp.subType}-${comp.colorFamily}`;
+  return COMPONENT_IMAGES[key] || null;
+}
 
 function OutfitCard({ outfit, index }: { outfit: OutfitSet; index: number }) {
   const ownedCount = outfit.components.filter(c => c.owned).length;
@@ -52,15 +100,20 @@ function OutfitCard({ outfit, index }: { outfit: OutfitSet; index: number }) {
 }
 
 function ComponentCard({ component }: { component: OutfitComponent }) {
+  const image = getComponentImage(component);
   return (
     <View style={[styles.componentCard, component.owned && styles.componentOwned]}>
-      <View style={styles.componentIconWrap}>
-        <Ionicons
-          name={categoryIcons[component.category] as any || 'ellipse-outline'}
-          size={20}
-          color={component.owned ? Colors.success : Colors.textLight}
-        />
-      </View>
+      {image ? (
+        <Image source={image} style={styles.componentImage} resizeMode="cover" />
+      ) : (
+        <View style={styles.componentIconWrap}>
+          <Ionicons
+            name={categoryIcons[component.category] as any || 'ellipse-outline'}
+            size={20}
+            color={component.owned ? Colors.success : Colors.textLight}
+          />
+        </View>
+      )}
       <Text style={styles.componentType} numberOfLines={1}>{component.subType.replace('-', ' ')}</Text>
       <Text style={styles.componentColor} numberOfLines={1}>{component.colorFamily}</Text>
       <View style={[styles.statusBadge, component.owned ? styles.statusOwned : styles.statusNeeded]}>
@@ -163,6 +216,7 @@ const styles = StyleSheet.create({
   componentsGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
   componentCard: { width: '30%', backgroundColor: Colors.background, borderRadius: 12, padding: 10, alignItems: 'center', flexGrow: 1 },
   componentOwned: { backgroundColor: Colors.success + '10' },
+  componentImage: { width: 44, height: 44, borderRadius: 10, marginBottom: 6, backgroundColor: Colors.border },
   componentIconWrap: { width: 36, height: 36, borderRadius: 10, backgroundColor: Colors.white, alignItems: 'center', justifyContent: 'center', marginBottom: 6 },
   componentType: { fontFamily: 'Inter_500Medium', fontSize: 11, color: Colors.primary, textTransform: 'capitalize', textAlign: 'center' },
   componentColor: { fontFamily: 'Inter_400Regular', fontSize: 10, color: Colors.textSecondary, textTransform: 'capitalize', marginTop: 2 },

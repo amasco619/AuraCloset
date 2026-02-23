@@ -1,4 +1,4 @@
-import { StyleSheet, Text, View, ScrollView, Pressable, Platform } from 'react-native';
+import { StyleSheet, Text, View, ScrollView, Pressable, Platform, Image } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { router } from 'expo-router';
@@ -17,9 +17,13 @@ const categoryIcons: Record<string, string> = {
   jewelry: 'diamond-outline',
 };
 
+const categoryLabels: Record<string, string> = {
+  top: 'Tops', bottom: 'Bottoms', outerwear: 'Outerwear', shoes: 'Shoes', jewelry: 'Jewelry',
+};
+
 export default function HomeScreen() {
   const insets = useSafeAreaInsets();
-  const { profile, wardrobeItems, outfitSets, isPremium, canAddItem } = useApp();
+  const { profile, wardrobeItems, outfitSets, isPremium, canAddItem, starterRecommendations } = useApp();
   const webTopInset = Platform.OS === 'web' ? 67 : 0;
 
   const categoryCounts: Record<string, number> = {};
@@ -120,6 +124,32 @@ export default function HomeScreen() {
           </View>
         </Animated.View>
 
+        {Object.values(starterRecommendations).some(Boolean) && (
+          <Animated.View entering={FadeInDown.delay(450).duration(500)}>
+            <Text style={styles.sectionTitle}>Starter Recommendations</Text>
+            <Text style={styles.recSubtitle}>Key pieces to build your capsule wardrobe</Text>
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.recScroll} contentContainerStyle={styles.recScrollContent}>
+              {Object.entries(starterRecommendations).map(([cat, slot]) => {
+                if (!slot) return null;
+                return (
+                  <View key={slot.id} style={styles.recCard}>
+                    <Image source={slot.sampleImage} style={styles.recImage} resizeMode="cover" />
+                    <View style={styles.recCategoryBadge}>
+                      <Text style={styles.recCategoryText}>{categoryLabels[cat] || cat}</Text>
+                    </View>
+                    <Text style={styles.recLabel} numberOfLines={1}>{slot.label}</Text>
+                    <Text style={styles.recDesc} numberOfLines={2}>{slot.description}</Text>
+                    <View style={styles.recNeededBadge}>
+                      <Ionicons name="add-circle-outline" size={12} color={Colors.warning} />
+                      <Text style={styles.recNeededText}>Needed</Text>
+                    </View>
+                  </View>
+                );
+              })}
+            </ScrollView>
+          </Animated.View>
+        )}
+
         {wardrobeItems.length > 0 && (
           <Animated.View entering={FadeInDown.delay(500).duration(500)}>
             <Text style={styles.sectionTitle}>Wardrobe Breakdown</Text>
@@ -190,4 +220,15 @@ const styles = StyleSheet.create({
   breakdownCount: { fontFamily: 'Inter_600SemiBold', fontSize: 13, color: Colors.textSecondary, width: 24, textAlign: 'right' },
   tipCard: { flexDirection: 'row', alignItems: 'center', gap: 12, backgroundColor: Colors.white, borderRadius: 12, padding: 14, marginBottom: 8 },
   tipText: { fontFamily: 'Inter_400Regular', fontSize: 13, color: Colors.textSecondary, flex: 1, lineHeight: 18 },
+  recSubtitle: { fontFamily: 'Inter_400Regular', fontSize: 13, color: Colors.textSecondary, marginBottom: 14, marginTop: -8 },
+  recScroll: { marginBottom: 24, marginHorizontal: -20 },
+  recScrollContent: { paddingHorizontal: 20, gap: 12 },
+  recCard: { width: 160, backgroundColor: Colors.white, borderRadius: 14, overflow: 'hidden' },
+  recImage: { width: 160, height: 130, backgroundColor: Colors.border },
+  recCategoryBadge: { position: 'absolute', top: 8, left: 8, backgroundColor: Colors.overlay, paddingHorizontal: 8, paddingVertical: 3, borderRadius: 6 },
+  recCategoryText: { fontFamily: 'Inter_500Medium', fontSize: 10, color: Colors.white, textTransform: 'uppercase', letterSpacing: 0.5 },
+  recLabel: { fontFamily: 'Inter_600SemiBold', fontSize: 13, color: Colors.primary, paddingHorizontal: 10, paddingTop: 10 },
+  recDesc: { fontFamily: 'Inter_400Regular', fontSize: 11, color: Colors.textSecondary, paddingHorizontal: 10, marginTop: 2, lineHeight: 15 },
+  recNeededBadge: { flexDirection: 'row', alignItems: 'center', gap: 4, paddingHorizontal: 10, paddingVertical: 8 },
+  recNeededText: { fontFamily: 'Inter_500Medium', fontSize: 11, color: Colors.warning },
 });

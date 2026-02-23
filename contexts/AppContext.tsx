@@ -1,6 +1,7 @@
 import { createContext, useContext, useState, useEffect, useMemo, ReactNode, useCallback } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Crypto from 'expo-crypto';
+import { WardrobeSlot, initializeSlots, updateSlotsAfterAdd, getFirstNeededByCategory } from '@/constants/wardrobeBlueprint';
 
 export type BodyType = 'hourglass' | 'pear' | 'apple' | 'rectangle' | 'inverted-triangle' | 'athletic';
 export type EyeColor = 'dark-brown' | 'light-brown' | 'hazel' | 'green' | 'blue' | 'grey';
@@ -69,6 +70,8 @@ interface AppContextValue {
   outfitSets: OutfitSet[];
   isLoading: boolean;
   canAddItem: boolean;
+  recommendationSlots: WardrobeSlot[];
+  starterRecommendations: Record<string, WardrobeSlot | undefined>;
 }
 
 const defaultProfile: UserProfile = {
@@ -98,6 +101,7 @@ const STORAGE_KEYS = {
   profile: '@auracloset_profile',
   wardrobe: '@auracloset_wardrobe',
   premium: '@auracloset_premium',
+  slots: '@auracloset_slots',
 };
 
 const subTypes: Record<ItemCategory, string[]> = {
@@ -221,27 +225,56 @@ function generateOutfitSets(items: WardrobeItem[], profile: UserProfile): Outfit
 }
 
 export { subTypes, colorFamilies };
+export type { WardrobeSlot } from '@/constants/wardrobeBlueprint';
 
 export function AppProvider({ children }: { children: ReactNode }) {
   const [profile, setProfile] = useState<UserProfile>(defaultProfile);
   const [wardrobeItems, setWardrobeItems] = useState<WardrobeItem[]>([]);
   const [isPremium, setIsPremium] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
+  const [recommendationSlots, setRecommendationSlots] = useState<WardrobeSlot[]>([]);
+  const [slotsInitialized, setSlotsInitialized] = useState(false);
 
   useEffect(() => {
     loadData();
   }, []);
 
+  useEffect(() => {
+    if (!isLoading && !slotsInitialized) {
+      const slots = initializeSlots(wardrobeItems);
+      setRecommendationSlots(slots);
+      setSlotsInitialized(true);
+      AsyncStorage.setItem(STORAGE_KEYS.slots, JSON.stringify(
+        slots.map(s => ({ id: s.id, status: s.status, matchedItemId: s.matchedItemId }))
+      ));
+    }
+  }, [isLoading, slotsInitialized, wardrobeItems]);
+
   const loadData = async () => {
     try {
-      const [profileData, wardrobeData, premiumData] = await Promise.all([
+      const [profileData, wardrobeData, premiumData, slotsData] = await Promise.all([
         AsyncStorage.getItem(STORAGE_KEYS.profile),
         AsyncStorage.getItem(STORAGE_KEYS.wardrobe),
         AsyncStorage.getItem(STORAGE_KEYS.premium),
+        AsyncStorage.getItem(STORAGE_KEYS.slots),
       ]);
       if (profileData) setProfile(JSON.parse(profileData));
-      if (wardrobeData) setWardrobeItems(JSON.parse(wardrobeData));
+      const loadedItems = wardrobeData ? JSON.parse(wardrobeData) : [];
+      if (wardrobeData) setWardrobeItems(loadedItems);
       if (premiumData) setIsPremium(JSON.parse(premiumData));
+      if (slotsData) {
+        const savedStatuses: { id: string; status: 'needed' | 'owned'; matchedItemId?: string }[] = JSON.parse(slotsData);
+        const fullSlots = initializeSlots(loadedItems);
+        const merged = fullSlots.map(slot => {
+          const saved = savedStatuses.find(s => s.id === slot.id);
+          if (saved) {
+            return { ...slot, status: saved.status, matchedItemId: saved.matchedItemId };
+          }
+          return slot;
+        });
+        setRecommendationSlots(merged);
+        setSlotsInitialized(true);
+      }
     } catch (e) {
       console.error('Failed to load data:', e);
     } finally {
@@ -268,12 +301,24 @@ export function AppProvider({ children }: { children: ReactNode }) {
       AsyncStorage.setItem(STORAGE_KEYS.wardrobe, JSON.stringify(updated));
       return updated;
     });
+    setRecommendationSlots(prev => {
+      const updated = updateSlotsAfterAdd(prev, newItem);
+      AsyncStorage.setItem(STORAGE_KEYS.slots, JSON.stringify(
+        updated.map(s => ({ id: s.id, status: s.status, matchedItemId: s.matchedItemId }))
+      ));
+      return updated;
+    });
   }, []);
 
   const removeWardrobeItem = useCallback((id: string) => {
     setWardrobeItems(prev => {
       const updated = prev.filter(item => item.id !== id);
       AsyncStorage.setItem(STORAGE_KEYS.wardrobe, JSON.stringify(updated));
+      const refreshedSlots = initializeSlots(updated);
+      setRecommendationSlots(refreshedSlots);
+      AsyncStorage.setItem(STORAGE_KEYS.slots, JSON.stringify(
+        refreshedSlots.map(s => ({ id: s.id, status: s.status, matchedItemId: s.matchedItemId }))
+      ));
       return updated;
     });
   }, []);
@@ -288,6 +333,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
   const outfitSets = useMemo(() => generateOutfitSets(wardrobeItems, profile), [wardrobeItems, profile]);
   const canAddItem = isPremium || wardrobeItems.length < FREE_ITEM_CAP;
+  const starterRecommendations = useMemo(() => getFirstNeededByCategory(recommendationSlots), [recommendationSlots]);
 
   const value = useMemo(() => ({
     profile,
@@ -300,7 +346,9 @@ export function AppProvider({ children }: { children: ReactNode }) {
     outfitSets,
     isLoading,
     canAddItem,
-  }), [profile, updateProfile, wardrobeItems, addWardrobeItem, removeWardrobeItem, isPremium, togglePremium, outfitSets, isLoading, canAddItem]);
+    recommendationSlots,
+    starterRecommendations,
+  }), [profile, updateProfile, wardrobeItems, addWardrobeItem, removeWardrobeItem, isPremium, togglePremium, outfitSets, isLoading, canAddItem, recommendationSlots, starterRecommendations]);
 
   return (
     <AppContext.Provider value={value}>

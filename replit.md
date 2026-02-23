@@ -4,9 +4,9 @@
 AuraCloset is a virtual wardrobe + styling assistant mobile app built with Expo (React Native) and Express backend. The tagline is "Your quiet-luxury stylist in your pocket."
 
 ## Current State
-- **Version**: 1.0.0
-- **Last Updated**: 2026-02-22
-- **Status**: Initial build complete
+- **Version**: 1.1.0
+- **Last Updated**: 2026-02-23
+- **Status**: Recommendation slots system added
 
 ## Architecture
 - **Frontend**: Expo Router (file-based routing) with React Native
@@ -15,10 +15,13 @@ AuraCloset is a virtual wardrobe + styling assistant mobile app built with Expo 
 - **Styling**: Custom theme with Inter font family, quiet-luxury color palette
 
 ## Key Features
-- Multi-step onboarding (body type, eye color, skin tone, style goals)
+- Multi-step onboarding (body type with illustrated images, eye color, skin tone, style goals)
 - Wardrobe digitization with camera/gallery (30-item free cap)
-- Outfit recommendations by scenario (Work/Casual/Date/Event)
+- Outfit recommendations by scenario (Work/Casual/Date/Event) with sample images per component
 - Wardrobe analytics (category & color distribution)
+- WardrobeSlot blueprint system (19 essential items across tops, bottoms, outerwear, shoes, jewelry, dress, bag)
+- Starter Recommendations on Home screen (first needed slot per category)
+- Slot status tracking (needed/owned) with automatic matching on item add/remove
 - Premium tier toggle (unlimited items, blueprint, advanced features)
 - Profile management with style constraints
 
@@ -33,15 +36,28 @@ app/
   item-detail.tsx      - Item detail view
   (tabs)/
     _layout.tsx        - Tab navigation (liquid glass on iOS 26+)
-    home.tsx           - Dashboard
+    index.tsx          - Dashboard with starter recommendations
     wardrobe.tsx       - Wardrobe grid
-    outfits.tsx        - Outfit recommendations
+    outfits.tsx        - Outfit recommendations with component images
     profile.tsx        - Profile & settings
 contexts/
-  AppContext.tsx        - Main app state (profile, wardrobe, premium)
+  AppContext.tsx        - Main app state (profile, wardrobe, premium, recommendation slots)
 constants/
   colors.ts            - Theme colors (navy/champagne gold palette)
+  wardrobeBlueprint.ts - WardrobeSlot model, blueprint data, slot initialization/matching
+assets/
+  body_types/          - Illustrated body shape images (hourglass, pear, apple, rectangle, inverted triangle, athletic)
+  recommendations/     - Sample images for wardrobe slots (19 flat-lay fashion photos)
 ```
+
+## WardrobeSlot Blueprint System
+- 19 essential wardrobe items defined in `constants/wardrobeBlueprint.ts`
+- Each slot has: id, category, subType, colorFamily, priority, label, description, sampleImage
+- Slots are initialized on first load by comparing user's wardrobe to the blueprint
+- When an item is added, the first matching needed slot is updated to owned
+- When an item is removed, all slots are re-initialized from the current wardrobe
+- Slot statuses are persisted to AsyncStorage under `@auracloset_slots`
+- `starterRecommendations` provides the first needed slot per category for the Home screen
 
 ## Color Palette
 - Primary: #101826 (Deep Navy)
