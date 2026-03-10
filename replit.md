@@ -17,6 +17,7 @@ AuraCloset is a virtual wardrobe + styling assistant mobile app built with Expo 
 ## Key Features
 - Multi-step onboarding (body type with illustrated images, eye color, skin tone, style goals)
 - Wardrobe digitization with camera/gallery (30-item free cap)
+- Garment classification via Google Cloud Vision (POST /api/classify-garment)
 - Outfit recommendations by scenario (Work/Casual/Date/Event) with sample images per component
 - Wardrobe analytics (category & color distribution)
 - WardrobeSlot blueprint system (19 essential items across tops, bottoms, outerwear, shoes, jewelry, dress, bag)
@@ -69,6 +70,16 @@ assets/
 - Slot statuses are persisted to AsyncStorage under `@auracloset_slots`
 - `starterRecommendations` provides the first needed slot per category for the Home screen
 - Home screen subtitle dynamically shows "Curated for your [Style] style"
+
+## Garment Classification API
+- Endpoint: POST /api/classify-garment (on the existing Express server, port 5000)
+- Calls Google Cloud Vision Label Detection to identify garment type and color
+- Maps Vision labels to internal schema (garmentType + colorFamily)
+- Requires `GCV_API_KEY` secret (Google Cloud Vision API key)
+- Implementation: `server/classify-garment.ts`, registered in `server/routes.ts`
+- Documentation: `server/README.md`
+- Dependencies: axios (for Vision API calls)
+- JSON body limit increased to 10mb to support base64 image uploads
 
 ## Color Palette
 - Primary: #101826 (Deep Navy)
