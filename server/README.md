@@ -44,6 +44,7 @@ Content-Type: application/json
 {
   "garmentType": "zip_up_hoodie",
   "colorFamily": "grey",
+  "description": "Grey zip-up hoodie",
   "modelConfidence": 0.94,
   "rawLabels": [
     { "description": "Hoodie", "score": 0.94 },
@@ -62,6 +63,7 @@ Content-Type: application/json
 |---|---|---|
 | `garmentType` | string | Normalized AuraCloset type (e.g. `zip_up_hoodie`, `t_shirt`, `jeans`, `dress`) or `"unknown"` |
 | `colorFamily` | string or null | Simple color bucket (`black`, `white`, `grey`, `blue`, etc.) or `null` |
+| `description` | string | Human-readable summary combining color and garment type (e.g. `"Grey zip-up hoodie"`, `"Jacket"`) |
 | `modelConfidence` | number | Score (0–1) of the label that produced `garmentType` |
 | `rawLabels` | array | Top 5 raw labels from Google Vision (description + score) |
 | `source` | string | Always `"gcv_label_detection"` |

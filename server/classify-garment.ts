@@ -32,6 +32,30 @@ const COLOR_LABEL_MAP: Record<string, string> = {
   "Orange": "orange",
 };
 
+const GARMENT_DISPLAY_NAME: Record<string, string> = {
+  zip_up_hoodie: "Zip-up hoodie",
+  sweatshirt: "Sweatshirt",
+  jacket: "Jacket",
+  coat: "Coat",
+  shirt: "Shirt",
+  t_shirt: "T-shirt",
+  blouse: "Blouse",
+  jeans: "Jeans",
+  trousers: "Trousers",
+  skirt: "Skirt",
+  dress: "Dress",
+  unknown: "Clothing item",
+};
+
+function buildDescription(garmentType: string, colorFamily: string | null): string {
+  const garmentName = GARMENT_DISPLAY_NAME[garmentType] || garmentType;
+  if (colorFamily) {
+    const capitalizedColor = colorFamily.charAt(0).toUpperCase() + colorFamily.slice(1);
+    return `${capitalizedColor} ${garmentName.toLowerCase()}`;
+  }
+  return garmentName;
+}
+
 const CONF_THRESHOLD = 0.7;
 
 interface VisionLabel {
@@ -104,9 +128,12 @@ export async function classifyGarment(req: Request, res: Response) {
       console.log(`Classified garment for user ${userId}: ${garmentType}`);
     }
 
+    const description = buildDescription(garmentType, colorFamily);
+
     return res.json({
       garmentType,
       colorFamily,
+      description,
       modelConfidence,
       rawLabels: labels.slice(0, 5),
       source: "gcv_label_detection",

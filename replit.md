@@ -75,6 +75,7 @@ assets/
 - Endpoint: POST /api/classify-garment (on the existing Express server, port 5000)
 - Calls Google Cloud Vision Label Detection to identify garment type and color
 - Maps Vision labels to internal schema (garmentType + colorFamily)
+- Returns a human-readable `description` field combining color and garment type (e.g. "Grey zip-up hoodie")
 - Requires `GCV_API_KEY` secret (Google Cloud Vision API key)
 - Implementation: `server/classify-garment.ts`, registered in `server/routes.ts`
 - Documentation: `server/README.md`
